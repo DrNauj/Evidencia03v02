@@ -1,0 +1,106 @@
+{% extends "processor/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'processor:job_list' %}">Jobs</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'processor:job_detail' job.id %}">Job #{{ job.id }}</a></li>
+            <li class="breadcrumb-item active">Resultados</li>
+        </ol>
+    </nav>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title mb-0">Resultados del Job #{{ job.id }}</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Estadísticas Generales</h5>
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Total de registros:</th>
+                            <td>{{ results.total_records }}</td>
+                        </tr>
+                        <tr>
+                            <th>Predicciones positivas:</th>
+                            <td>{{ results.positive_predictions }}</td>
+                        </tr>
+                        <tr>
+                            <th>Predicciones negativas:</th>
+                            <td>{{ results.negative_predictions }}</td>
+                        </tr>
+                        <tr>
+                            <th>Tasa de éxito:</th>
+                            <td>{{ results.success_rate|floatformat:2 }}%</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                {% if results.confusion_matrix %}
+                <div class="col-md-6">
+                    <h5>Matriz de Confusión</h5>
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Pred. Positivo</th>
+                                <th>Pred. Negativo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th>Real Positivo</th>
+                                <td>{{ results.confusion_matrix.tp }}</td>
+                                <td>{{ results.confusion_matrix.fn }}</td>
+                            </tr>
+                            <tr>
+                                <th>Real Negativo</th>
+                                <td>{{ results.confusion_matrix.fp }}</td>
+                                <td>{{ results.confusion_matrix.tn }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if results.feature_importance %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h5>Importancia de Características</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Característica</th>
+                                    <th>Importancia</th>
+                                    <th>Visualización</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for feature, importance in results.feature_importance.items %}
+                                <tr>
+                                    <td>{{ feature }}</td>
+                                    <td>{{ importance|floatformat:4 }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: {{ importance|multiply:100 }}%">
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

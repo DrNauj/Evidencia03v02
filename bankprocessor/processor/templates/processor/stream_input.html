@@ -1,0 +1,34 @@
+{% extends 'processor/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3>Ingresar datos para Streaming</h3>
+    <p>Rellene los campos y pulse Enviar para generar un CSV en la carpeta <code>input_streaming/</code>.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-2">
+            <label for="age">Edad</label>
+            <input class="form-control" name="age" id="age" />
+        </div>
+        <div class="mb-2">
+            <label for="job">Trabajo</label>
+            <input class="form-control" name="job" id="job" />
+        </div>
+        <div class="mb-2">
+            <label for="balance">Balance</label>
+            <input class="form-control" name="balance" id="balance" />
+        </div>
+        <div class="mb-2">
+            <label for="loan">Loan</label>
+            <input class="form-control" name="loan" id="loan" />
+        </div>
+        <button class="btn btn-primary" type="submit">Enviar</button>
+    </form>
+
+    <div class="mt-4">
+        <a href="{% url 'processor:start_stream' %}" class="btn btn-success">Iniciar Stream Worker</a>
+        <a href="{% url 'processor:stop_stream' %}" class="btn btn-danger ms-2">Detener Stream Worker</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "processor/base.html" %}
+
+{% block title %}Predicción exitosa{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h2 class="card-title">¡Predicción completada!</h2>
+                    <p class="card-text">Los datos han sido procesados exitosamente.</p>
+                    <a href="{% url 'processor:predict' %}" class="btn btn-primary">Nueva predicción</a>
+                    <a href="{% url 'processor:home' %}" class="btn btn-secondary">Volver al inicio</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

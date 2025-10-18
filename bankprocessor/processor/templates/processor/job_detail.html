@@ -1,0 +1,198 @@
+{% extends "processor/base.html" %}
+
+{% block title %}Job {{ job.id }} - Bank Processor{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>
+                Job {{ job.id }}
+                <span class="badge bg-{{ job.status|yesno:'success,warning,danger' }} ms-2">
+                    {{ job.get_status_display }}
+                </span>
+            </h2>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'processor:job_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Detalles del Job -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Detalles del Job</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <dl class="row">
+                        <dt class="col-sm-4">Estado:</dt>
+                        <dd class="col-sm-8">{{ job.get_status_display }}</dd>
+                        
+                        <dt class="col-sm-4">Creado:</dt>
+                        <dd class="col-sm-8">{{ job.started_at|date:"d/m/Y H:i:s" }}</dd>
+                        
+                        <dt class="col-sm-4">Completado:</dt>
+                        <dd class="col-sm-8">
+                            {% if job.completed_at %}
+                                {{ job.completed_at|date:"d/m/Y H:i:s" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+                <div class="col-md-6">
+                    <dl class="row">
+                        <dt class="col-sm-4">Tamaño Lote:</dt>
+                        <dd class="col-sm-8">{{ job.batch_size }}</dd>
+                        
+                        <dt class="col-sm-4">Clave Batch:</dt>
+                        <dd class="col-sm-8">{{ job.batch_key }}</dd>
+                        
+                        <dt class="col-sm-4">Progreso:</dt>
+                        <dd class="col-sm-8">
+                            <div class="progress">
+                                <div class="progress-bar" role="progressbar" 
+                                     style="width: {{ job.progress }}%">
+                                    {{ job.progress }}%
+                                </div>
+                            </div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            {% if job.error_message %}
+            <div class="alert alert-danger mt-3">
+                <h6 class="alert-heading">Error:</h6>
+                <pre class="mb-0">{{ job.error_message }}</pre>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Resultados por Lotes -->
+    {% if results %}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Resultados por Lotes</h5>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-primary" id="toggleChart">
+                    <i class="fas fa-chart-line me-1"></i>Ver Gráfico
+                </button>
+                <button class="btn btn-sm btn-outline-primary" id="toggleTable">
+                    <i class="fas fa-table me-1"></i>Ver Tabla
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Gráfico -->
+            <div id="metricsChart" style="height: 400px;" class="mb-4"></div>
+
+            <!-- Tabla -->
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Lote</th>
+                            <th>Registros</th>
+                            <th>Accuracy</th>
+                            <th>Precision</th>
+                            <th>Recall</th>
+                            <th>F1 Score</th>
+                            <th>Tiempo (s)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                        <tr>
+                            <td>{{ result.batch_number }}</td>
+                            <td>{{ result.records_processed }}</td>
+                            <td>{{ result.accuracy|floatformat:4 }}</td>
+                            <td>{{ result.precision|floatformat:4 }}</td>
+                            <td>{{ result.recall|floatformat:4 }}</td>
+                            <td>{{ result.f1_score|floatformat:4 }}</td>
+                            <td>{{ result.processing_time|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th>Promedio</th>
+                            <td>{{ total_records }}</td>
+                            <td>{{ avg_accuracy|floatformat:4 }}</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>{{ avg_f1|floatformat:4 }}</td>
+                            <td>{{ total_time|floatformat:2 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>No hay resultados disponibles todavía.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Plotly.js -->
+<script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Solo inicializar gráfico si hay resultados
+    {% if results %}
+    var results = {{ results|safe }};
+    
+    // Preparar datos para el gráfico
+    var trace1 = {
+        x: results.map(r => r.batch_number),
+        y: results.map(r => r.accuracy),
+        name: 'Accuracy',
+        type: 'scatter'
+    };
+    
+    var trace2 = {
+        x: results.map(r => r.batch_number),
+        y: results.map(r => r.f1_score),
+        name: 'F1 Score',
+        type: 'scatter'
+    };
+    
+    var data = [trace1, trace2];
+    
+    var layout = {
+        title: 'Métricas por Lote',
+        xaxis: {
+            title: 'Número de Lote'
+        },
+        yaxis: {
+            title: 'Score',
+            range: [0, 1]
+        }
+    };
+    
+    Plotly.newPlot('metricsChart', data, layout);
+    
+    // Toggles de visualización
+    document.getElementById('toggleChart').addEventListener('click', function() {
+        document.getElementById('metricsChart').style.display = 'block';
+        document.querySelector('.table-responsive').style.display = 'none';
+    });
+    
+    document.getElementById('toggleTable').addEventListener('click', function() {
+        document.getElementById('metricsChart').style.display = 'none';
+        document.querySelector('.table-responsive').style.display = 'block';
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

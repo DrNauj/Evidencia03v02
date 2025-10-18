@@ -1,0 +1,205 @@
+{% extends "processor/base.html" %}
+
+{% block title %}Comparar Resultados - Bank Processor{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>Comparar Resultados</h2>
+            <p class="lead">Compare resultados entre procesamiento batch y streaming</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h4>Resultados Batch</h4>
+                        <div class="mb-3">
+                            <label class="form-label">Job ID</label>
+                            <select name="batch_job_id" class="form-select">
+                                <option value="">Seleccione un job...</option>
+                                {% for job in batch_jobs %}
+                                <option value="{{ job.id }}">
+                                    Job {{ job.id }} - {{ job.started_at|date:"d/m/Y H:i" }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="text-muted">
+                            <small>O suba un archivo CSV con resultados:</small>
+                        </div>
+                        <div class="mb-3">
+                            {{ form.batch_file }}
+                            {% if form.batch_file.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.batch_file.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h4>Resultados Streaming</h4>
+                        <div class="mb-3">
+                            <label class="form-label">Rango de Fechas</label>
+                            <div class="row">
+                                <div class="col">
+                                    {{ form.stream_start }}
+                                </div>
+                                <div class="col">
+                                    {{ form.stream_end }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-muted">
+                            <small>O suba un archivo CSV con resultados:</small>
+                        </div>
+                        <div class="mb-3">
+                            {{ form.stream_file }}
+                            {% if form.stream_file.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.stream_file.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col text-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-chart-bar me-1"></i>Comparar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if comparison_results %}
+    <div class="row mt-4">
+        <!-- Gráficos de Comparación -->
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Métricas Comparativas</h5>
+                </div>
+                <div class="card-body">
+                    <div id="metricsChart" style="height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de Métricas -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Resumen de Métricas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Métrica</th>
+                                    <th>Batch</th>
+                                    <th>Streaming</th>
+                                    <th>Diferencia</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Accuracy</td>
+                                    <td>{{ comparison_results.batch.accuracy|floatformat:4 }}</td>
+                                    <td>{{ comparison_results.stream.accuracy|floatformat:4 }}</td>
+                                    <td class="{% if comparison_results.diff.accuracy > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ comparison_results.diff.accuracy|floatformat:4 }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Precision</td>
+                                    <td>{{ comparison_results.batch.precision|floatformat:4 }}</td>
+                                    <td>{{ comparison_results.stream.precision|floatformat:4 }}</td>
+                                    <td class="{% if comparison_results.diff.precision > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ comparison_results.diff.precision|floatformat:4 }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Recall</td>
+                                    <td>{{ comparison_results.batch.recall|floatformat:4 }}</td>
+                                    <td>{{ comparison_results.stream.recall|floatformat:4 }}</td>
+                                    <td class="{% if comparison_results.diff.recall > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ comparison_results.diff.recall|floatformat:4 }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>F1 Score</td>
+                                    <td>{{ comparison_results.batch.f1_score|floatformat:4 }}</td>
+                                    <td>{{ comparison_results.stream.f1_score|floatformat:4 }}</td>
+                                    <td class="{% if comparison_results.diff.f1_score > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ comparison_results.diff.f1_score|floatformat:4 }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Plotly.js -->
+<script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if comparison_results %}
+    // Datos para el gráfico
+    var trace1 = {
+        x: ['Accuracy', 'Precision', 'Recall', 'F1 Score'],
+        y: [
+            {{ comparison_results.batch.accuracy }},
+            {{ comparison_results.batch.precision }},
+            {{ comparison_results.batch.recall }},
+            {{ comparison_results.batch.f1_score }}
+        ],
+        name: 'Batch',
+        type: 'bar'
+    };
+    
+    var trace2 = {
+        x: ['Accuracy', 'Precision', 'Recall', 'F1 Score'],
+        y: [
+            {{ comparison_results.stream.accuracy }},
+            {{ comparison_results.stream.precision }},
+            {{ comparison_results.stream.recall }},
+            {{ comparison_results.stream.f1_score }}
+        ],
+        name: 'Streaming',
+        type: 'bar'
+    };
+    
+    var data = [trace1, trace2];
+    
+    var layout = {
+        barmode: 'group',
+        title: 'Comparación de Métricas',
+        yaxis: {
+            title: 'Score',
+            range: [0, 1]
+        }
+    };
+    
+    Plotly.newPlot('metricsChart', data, layout);
+    {% endif %}
+});
+</script>
+{% endblock %}

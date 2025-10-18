@@ -1,0 +1,17 @@
+{% extends "processor/base.html" %}
+
+{% block title %}500 - Error del servidor{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="display-1">500</h1>
+            <h2>¡Ups! Algo salió mal</h2>
+            <p class="lead">Lo sentimos, ha ocurrido un error en el servidor.</p>
+            <p>Por favor, inténtalo de nuevo más tarde o contacta con el administrador del sistema.</p>
+            <a href="{% url 'processor:home' %}" class="btn btn-primary">Volver al inicio</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

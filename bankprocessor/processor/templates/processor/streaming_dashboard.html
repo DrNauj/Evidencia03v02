@@ -1,0 +1,188 @@
+{% extends "processor/base.html" %}
+
+{% block title %}Dashboard de Streaming - Bank Processor{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>Dashboard de Streaming</h2>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="btn-group">
+                <button class="btn btn-success" id="startStream">
+                    <i class="fas fa-play me-1"></i>Iniciar
+                </button>
+                <button class="btn btn-danger" id="stopStream">
+                    <i class="fas fa-stop me-1"></i>Detener
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de Métricas en Tiempo Real -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Predicciones</h5>
+                    <h2 id="totalPredictions">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Tasa de Éxito</h5>
+                    <h2 id="successRate">0%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Tiempo Promedio</h5>
+                    <h2 id="avgTime">0 ms</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Estado</h5>
+                    <h2 id="status">
+                        <span class="badge bg-secondary">Detenido</span>
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de Predicciones -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Predicciones en Tiempo Real</h5>
+        </div>
+        <div class="card-body">
+            <div id="predictionsChart" style="height: 400px;"></div>
+        </div>
+    </div>
+
+    <!-- Tabla de Últimas Predicciones -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Últimas Predicciones</h5>
+            <button class="btn btn-sm btn-outline-primary" id="refreshTable">
+                <i class="fas fa-sync-alt me-1"></i>Actualizar
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="predictionsTable">
+                    <thead>
+                        <tr>
+                            <th>Hora</th>
+                            <th>Input</th>
+                            <th>Predicción</th>
+                            <th>Probabilidad</th>
+                            <th>Fuente</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pred in predictions %}
+                        <tr>
+                            <td>{{ pred.created_at|date:"H:i:s" }}</td>
+                            <td>{{ pred.input_json }}</td>
+                            <td>
+                                <span class="badge bg-{% if pred.prediction == 1 %}success{% else %}danger{% endif %}">
+                                    {{ pred.prediction|yesno:"Sí,No" }}
+                                </span>
+                            </td>
+                            <td>{{ pred.probability|floatformat:4 }}</td>
+                            <td>{{ pred.source_file }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No hay predicciones todavía</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Plotly.js -->
+<script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar gráfico vacío
+    var trace = {
+        x: [],
+        y: [],
+        type: 'scatter'
+    };
+    
+    var layout = {
+        title: 'Predicciones en Tiempo Real',
+        xaxis: { title: 'Tiempo' },
+        yaxis: { title: 'Probabilidad', range: [0, 1] }
+    };
+    
+    Plotly.newPlot('predictionsChart', [trace], layout);
+    
+    // Controladores de eventos para botones
+    document.getElementById('startStream').addEventListener('click', function() {
+        fetch('{% url "processor:start_stream" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        }).then(response => {
+            if (response.ok) {
+                document.getElementById('status').innerHTML = '<span class="badge bg-success">Activo</span>';
+            }
+        });
+    });
+    
+    document.getElementById('stopStream').addEventListener('click', function() {
+        fetch('{% url "processor:stop_stream" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        }).then(response => {
+            if (response.ok) {
+                document.getElementById('status').innerHTML = '<span class="badge bg-secondary">Detenido</span>';
+            }
+        });
+    });
+    
+    document.getElementById('refreshTable').addEventListener('click', function() {
+        location.reload();
+    });
+    
+    // Actualizar datos cada 5 segundos
+    setInterval(function() {
+        fetch('{% url "processor:streaming_status" %}')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('totalPredictions').textContent = data.total_predictions;
+                document.getElementById('successRate').textContent = data.success_rate + '%';
+                document.getElementById('avgTime').textContent = data.avg_time + ' ms';
+                
+                // Actualizar gráfico
+                if (data.recent_predictions.length > 0) {
+                    Plotly.extendTraces('predictionsChart', {
+                        x: [data.recent_predictions.map(p => p.time)],
+                        y: [data.recent_predictions.map(p => p.probability)]
+                    }, [0]);
+                }
+            });
+    }, 5000);
+});
+</script>
+{% endblock %}

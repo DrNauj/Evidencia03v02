@@ -1,0 +1,16 @@
+{% extends "processor/base.html" %}
+
+{% block title %}404 - Página no encontrada{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="display-1">404</h1>
+            <h2>¡Ups! Página no encontrada</h2>
+            <p class="lead">Lo sentimos, la página que estás buscando no existe.</p>
+            <a href="{% url 'processor:home' %}" class="btn btn-primary">Volver al inicio</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

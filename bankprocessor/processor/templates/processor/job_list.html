@@ -1,0 +1,188 @@
+{% extends "processor/base.html" %}
+
+{% block title %}Lista de Jobs - Bank Processor{% endblock %}
+
+{% block extra_head %}
+<script>
+function updateJobs() {
+    fetch('{% url "processor:job_status" %}')
+        .then(response => response.json())
+        .then(data => {
+            data.jobs.forEach(job => {
+                // Actualizar estado
+                const statusCell = document.querySelector(`#job-${job.id} .job-status`);
+                if (statusCell) {
+                    statusCell.innerHTML = `<span class="badge bg-${job.status === 'completed' ? 'success' : job.status === 'running' ? 'warning' : 'danger'}">${job.status_display}</span>`;
+                }
+                
+                // Actualizar progreso
+                const progressBar = document.querySelector(`#job-${job.id} .progress-bar`);
+                if (progressBar) {
+                    progressBar.style.width = `${job.progress}%`;
+                    progressBar.innerHTML = `${job.progress}%`;
+                }
+                
+                // Actualizar contadores
+                const recordsCell = document.querySelector(`#job-${job.id} .job-records`);
+                if (recordsCell) {
+                    recordsCell.textContent = `${job.processed_records}/${job.total_records || '?'}`;
+                }
+            });
+        });
+}
+
+// Actualizar cada 5 segundos
+document.addEventListener('DOMContentLoaded', function() {
+    setInterval(updateJobs, 5000);
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>Jobs de Procesamiento</h2>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newJobModal">
+                <i class="fas fa-plus-circle me-1"></i>Nuevo Job
+            </button>
+        </div>
+    </div>
+
+    {% if jobs %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>Estado</th>
+                    <th>Registros</th>
+                    <th>Progreso</th>
+                    <th>Creado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in jobs %}
+                <tr id="job-{{ job.id }}">
+                    <td><a href="{% url 'processor:job_detail' pk=job.id %}">{{ job.id }}</a></td>
+                    <td class="job-status">
+                        <span class="badge bg-{{ job.status|yesno:'success,warning,danger' }}">
+                            {{ job.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="job-records">{{ job.processed_records }}/{{ job.total_records|default:'?' }}</td>
+                    <td>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: {{ job.progress }}%">
+                                {{ job.progress }}%
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ job.started_at|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        <div class="btn-group">
+                            <a href="{% url 'processor:job_detail' pk=job.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-chart-bar"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" 
+                                    data-bs-target="#deleteJobModal" data-job-id="{{ job.id }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo;</a>
+            </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            </li>
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">&raquo;</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>No hay jobs de procesamiento.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Nuevo Job -->
+<div class="modal fade" id="newJobModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'processor:create_job' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Nuevo Job de Procesamiento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {% load crispy_forms_tags %}
+                    {{ form|crispy }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Eliminar Job -->
+<div class="modal fade" id="deleteJobModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'processor:job_delete' job_id=0 %}" id="deleteJobForm">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmar Eliminación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    ¿Está seguro de que desea eliminar este job?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+// Actualizar formulario de eliminación con el job_id correcto
+document.getElementById('deleteJobModal').addEventListener('show.bs.modal', function (event) {
+    var button = event.relatedTarget;
+    var jobId = button.getAttribute('data-job-id');
+    var form = document.getElementById('deleteJobForm');
+    form.action = form.action.replace('/0/', '/' + jobId + '/');
+});
+</script>
+{% endblock %}
+
+{% endblock %}

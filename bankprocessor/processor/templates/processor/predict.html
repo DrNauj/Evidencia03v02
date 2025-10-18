@@ -1,0 +1,22 @@
+{% extends 'processor/base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h3>Predicción Instantánea</h3>
+    <p>Rellena los campos y pulsa Predecir. Se usará el modelo persistido para devolver la etiqueta (prediction).</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-2"><label>age</label><input name="age" class="form-control"/></div>
+        <div class="mb-2"><label>job</label><input name="job" class="form-control"/></div>
+        <div class="mb-2"><label>balance</label><input name="balance" class="form-control"/></div>
+        <div class="mb-2"><label>loan</label><input name="loan" class="form-control"/></div>
+        <button class="btn btn-primary" type="submit">Predecir</button>
+    </form>
+
+    {% if prediction %}
+    <div class="alert alert-info mt-3">Predicción: <strong>{{ prediction }}</strong></div>
+    {% endif %}
+    {% if error %}
+    <div class="alert alert-danger mt-3">Error: {{ error }}</div>
+    {% endif %}
+</div>
+{% endblock %}
